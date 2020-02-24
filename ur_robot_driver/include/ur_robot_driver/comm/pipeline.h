@@ -29,6 +29,18 @@
 #include <vector>
 #include <fstream>
 
+#include <math.h>
+#include <stdio.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <sched.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+
+#include <ros/ros.h>
+
 namespace ur_driver
 {
 namespace comm
@@ -347,7 +359,27 @@ private:
     std::ifstream realtime_file("/sys/kernel/realtime", std::ios::in);
     bool has_realtime;
     realtime_file >> has_realtime;
-    if (has_realtime)
+
+    {
+      int pr_status = setpriority(PRIO_PROCESS, 0, -20);  // renice to maximum available priority
+      if (pr_status == 0)
+        ROS_INFO("requested renice priority -20 ok.");
+      else
+        ROS_ERROR("FAILED to set renice priority -20.");
+
+      // setscheduler(pid_t pid, int policy, const struct sched_param *param);
+      struct sched_param sched_params;
+      sched_params.sched_priority = 20;
+      int rt_status = sched_setscheduler(0,           // this process
+                                         SCHED_FIFO,  // realtime
+                                         &sched_params);
+      if (rt_status == 0)
+        ROS_INFO("switched to SCHED_FIFO and RT priority 20.");
+      else
+        ROS_ERROR("FAILED to set RT priority.");
+    }
+
+    if (false)
     {
       const int max_thread_priority = sched_get_priority_max(SCHED_FIFO);
       if (max_thread_priority != -1)
